@@ -6,6 +6,7 @@ const PathBv = process.env.SFTP_PATH_BV;
 const PathBee = process.env.SFTP_PATH_BEE;
 const TeamsUrl = process.env.TEAMS_WEBHOOK_URL;
 const New_Entrys = ["Dia", "Grupo", "Canal", "Mensagem"];
+const Renome = {SMS: "Numero", NOME: "Nome"};
 
 function AlterarCabecalho(buffer) {
     let texto = buffer.toString("utf8");
@@ -23,11 +24,11 @@ function AlterarCabecalho(buffer) {
 
     const limpar = col => col.trim().replace(/^"|"$/g, "");
 
-    const colunas = cabecalho.trimEnd().split(sep).map(col =>
-        limpar(col).toUpperCase() === "SMS"
-            ? (col.includes('"') ? '"Numero"' : "Numero")
-            : col
-    );
+    const colunas = cabecalho.trimEnd().split(sep).map(col => {
+        const novo = Renome[limpar(col).toUpperCase()];
+        if (!novo) return col;
+        return col.includes('"') ? `"${novo}"` : novo;
+    });
 
     const existentes = colunas.map(c => limpar(c).toUpperCase());
     const faltantes = New_Entrys.filter(n => !existentes.includes(n.toUpperCase()));
