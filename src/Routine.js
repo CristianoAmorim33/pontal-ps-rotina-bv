@@ -7,8 +7,6 @@ const PathBee = process.env.SFTP_PATH_BEE;
 const TeamsUrl = process.env.TEAMS_WEBHOOK_URL;
 const New_Entrys = ["Dia", "Grupo", "Canal", "Mensagem"];
 
-const NOVOS_CABECALHOS = ["Dia", "Grupo", "Canal", "Mensagem"];
-
 function AlterarCabecalho(buffer) {
     let texto = buffer.toString("utf8");
 
@@ -21,21 +19,23 @@ function AlterarCabecalho(buffer) {
     const cabecalho = fimCabecalho === -1 ? texto : texto.slice(0, fimCabecalho);
     const resto = fimCabecalho === -1 ? "" : texto.slice(fimCabecalho);
 
-    const sep = cabecalho.includes(";") ? ";" : ",";
+    const sep = cabecalho.includes("\t") ? "\t" : cabecalho.includes(";") ? ";" : ",";
 
-    const colunas = cabecalho.trimEnd().split(sep).map(col => {
-        const nome = col.trim().replace(/^"|"$/g, "");
-        if (nome.toUpperCase() === "SMS") {
-            return col.includes('"') ? '"Numero"' : "Numero";
-        }
-        return col;
-    });
+    const limpar = col => col.trim().replace(/^"|"$/g, "");
 
-    const novoCabecalho = [...colunas, ...NOVOS_CABECALHOS].join(sep);
+    const colunas = cabecalho.trimEnd().split(sep).map(col =>
+        limpar(col).toUpperCase() === "SMS"
+            ? (col.includes('"') ? '"Numero"' : "Numero")
+            : col
+    );
+
+    const existentes = colunas.map(c => limpar(c).toUpperCase());
+    const faltantes = New_Entrys.filter(n => !existentes.includes(n.toUpperCase()));
+
+    const novoCabecalho = [...colunas, ...faltantes].join(sep);
 
     return Buffer.from(bom + novoCabecalho + resto, "utf8");
 }
-
 //Coleta arquivo BV
 async function Get_Base_BV(PathRelatorios) {
     try {
