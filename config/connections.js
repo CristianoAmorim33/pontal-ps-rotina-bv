@@ -1,5 +1,6 @@
 import "dotenv/config";
 import Client from 'ssh2-sftp-client';
+import fs from 'fs';
 
 export const ClientSftpBee = new Client();
 
@@ -14,7 +15,7 @@ export const ClientSftpBV = new Client();
 
 await ClientSftpBV.connect({
   host: process.env.SFTP_HOST_BV,
-  port: Number(process.env.SFTP_PORT_BV) || 22,
+  port: Number(process.env.SFTP_PORT_BV),
   username: process.env.SFTP_USER_BV,
-  password: process.env.SFTP_PASS_BV,
+  privateKey: fs.readFileSync(process.env.SFTP_PASS_BV),
 });

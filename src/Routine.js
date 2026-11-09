@@ -1,5 +1,6 @@
 import { ClientSftpBee, ClientSftpBV } from '../config/connections.js';
 import "dotenv/config";
+import path from 'path';
 
 const PathBv = process.env.SFTP_PATH_BV;
 const PathBee = process.env.SFTP_PATH_BEE;
@@ -7,46 +8,39 @@ const TeamsUrl = process.env.TEAMS_WEBHOOK_URL;
 
 //Coleta arquivo BV
 async function Get_Base_BV(PathRelatorios) {
-
     try {
-
         const arquivos = (await ClientSftpBV.list(PathRelatorios)).filter(f => f.type === "-" && f.name.endsWith(".csv"));
 
         if (arquivos.length === 0) {
             throw new Error("Nenhum arquivo para envio");
         }
 
-        return {
-            Sucess: true,
-            Arquivos: arquivos.map(f => f.name)
+        const Arquivos = [];
+        for (const f of arquivos) {
+            Arquivos.push({
+                Nome: f.name,
+                Conteudo: await ClientSftpBV.get(`${PathRelatorios}/${f.name}`)
+            });
         }
 
+        return { Sucess: true, Arquivos }
     }
     catch (error) {
-        return {
-            Sucess: false,
-            Arquivos: [],
-            Err: error.message
-        }
+        return { Sucess: false, Arquivos: [], Err: error.message }
     }
 }
 
 //Envia arquivo para BEE
 async function Input_Base_BEE(PathDestiny, ArchiveBv) {
-
     try {
-
-        return {
-            Sucess: true,
-            Msg: "Arquivos enviados com sucesso"
+        for (const Arquivo of ArchiveBv) {
+            await ClientSftpBee.put(Arquivo.Conteudo, path.posix.join(PathDestiny, Arquivo.Nome));
         }
 
+        return { Sucess: true, Msg: "Arquivos enviados com sucesso" }
     }
     catch (error) {
-        return {
-            Sucess: false,
-            Msg: `Erro ao enviar arquivos para BEE: ${error.message}`
-        }
+        return { Sucess: false, Msg: `Erro ao enviar arquivos para BEE: ${error.message}` }
     }
 }
 
@@ -62,13 +56,13 @@ async function RoutineBvToBee() {
             throw new Error(`Erro ao buscar arquivos na BV: ${GetArchives_BV.Err}`);
         }
 
-        console.log(`Arquivos encontrados na BV: ${GetArchives_BV.Arquivos.join(", ")}`);
+        console.log(`Arquivos encontrados na BV: ${GetArchives_BV.Arquivos.map(a => a.Nome).join(", ")}`);
 
         console.log("Enviando arquivos para a BEE");
         const InputArchives_BEE = await Input_Base_BEE(PathBee, GetArchives_BV.Arquivos);
 
         if (!InputArchives_BEE.Sucess) {
-            throw new Error(`Erro ao enviar arquivos para BEE: ${InputArchives_BEE.Msg}`);
+            throw new Error(InputArchives_BEE.Msg);
         }
         console.log("Arquivos enviados com sucesso para a BEE");
 
@@ -78,6 +72,11 @@ async function RoutineBvToBee() {
     catch (error) {
         console.error(`Erro na rotina: ${error.message}`);
         return { Sucess: false, Msg: `Erro na rotina: ${error.message}` };
+    }
+
+    finally {
+        await ClientSftpBV.end().catch(() => { });
+        await ClientSftpBee.end().catch(() => { });
     }
 }
 
@@ -91,9 +90,9 @@ async function main(TeamsUrl) {
         const DataReport = new Date().toLocaleDateString("pt-BR");
         const HourReport = new Date().toLocaleTimeString("pt-BR");
 
-        //const resultsyncJob = await RoutineBvToBee();
+        const resultsyncJob = await RoutineBvToBee();
 
-        if (3 < 2) {
+        if (!resultsyncJob.Sucess) {
 
             ColorAllert = "attention";
             MsgTeams = `Erro ao enviar arquivos BV para BEE: ${resultsyncJob.Err}`;
@@ -147,4 +146,4 @@ async function main(TeamsUrl) {
     }
 }
 
-main (TeamsUrl)
+main(TeamsUrl)
