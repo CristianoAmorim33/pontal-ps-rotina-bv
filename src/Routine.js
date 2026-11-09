@@ -15,16 +15,17 @@ function AlterarCabecalho(buffer) {
     if (bom) texto = texto.slice(1);
 
     const quebra = texto.includes("\r\n") ? "\r\n" : "\n";
-    const fimCabecalho = texto.indexOf(quebra);
+    const linhas = texto.split(quebra);
 
-    const cabecalho = fimCabecalho === -1 ? texto : texto.slice(0, fimCabecalho);
-    const resto = fimCabecalho === -1 ? "" : texto.slice(fimCabecalho);
+    const sep = linhas[0].includes("\t") ? "\t" : linhas[0].includes(";") ? ";" : ",";
 
-    const sep = cabecalho.includes("\t") ? "\t" : cabecalho.includes(";") ? ";" : ",";
+    const limpar = col => col
+        .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "")
+        .trim()
+        .replace(/^"|"$/g, "")
+        .trim();
 
-    const limpar = col => col.trim().replace(/^"|"$/g, "");
-
-    const colunas = cabecalho.trimEnd().split(sep).map(col => {
+    let colunas = linhas[0].trimEnd().split(sep).map(col => {
         const novo = Renome[limpar(col).toUpperCase()];
         if (!novo) return col;
         return col.includes('"') ? `"${novo}"` : novo;
@@ -32,11 +33,38 @@ function AlterarCabecalho(buffer) {
 
     const existentes = colunas.map(c => limpar(c).toUpperCase());
     const faltantes = New_Entrys.filter(n => !existentes.includes(n.toUpperCase()));
+    colunas = [...colunas, ...faltantes];
 
-    const novoCabecalho = [...colunas, ...faltantes].join(sep);
+    const idx = nome => colunas.findIndex(c => limpar(c).toUpperCase() === nome.toUpperCase());
 
-    return Buffer.from(bom + novoCabecalho + resto, "utf8");
+    const iDtEnvio = idx("DT_ENVIO");
+    const iDia = idx("Dia");
+    const iGrupo = idx("Grupo");
+    const iCanal = idx("Canal");
+    const iMensagem = idx("Mensagem");
+
+    const primeiraLinha = linhas.slice(1).find(l => l.trim() !== "");
+    const dia = primeiraLinha && iDtEnvio !== -1
+        ? limpar(primeiraLinha.split(sep)[iDtEnvio] || "").split(" ")[0]
+        : "";
+
+    const dados = linhas.slice(1).map(linha => {
+        if (linha.trim() === "") return linha; // mantém linhas vazias (ex.: final do arquivo)
+
+        const campos = linha.split(sep);
+        while (campos.length < colunas.length) campos.push("");
+
+        campos[iDia] = dia;
+        campos[iGrupo] = "1";
+        campos[iCanal] = "sms";
+        campos[iMensagem] = "mensagem BV";
+
+        return campos.join(sep);
+    });
+
+    return Buffer.from(bom + [colunas.join(sep), ...dados].join(quebra), "utf8");
 }
+
 //Coleta arquivo BV
 async function Get_Base_BV(PathRelatorios) {
     try {
