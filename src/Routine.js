@@ -7,6 +7,8 @@ const PathBee = process.env.SFTP_PATH_BEE;
 const TeamsUrl = process.env.TEAMS_WEBHOOK_URL;
 const New_Entrys = ["Dia", "Grupo", "Canal", "Mensagem"];
 
+const NOVOS_CABECALHOS = ["Dia", "Grupo", "Canal", "Mensagem"];
+
 function AlterarCabecalho(buffer) {
     let texto = buffer.toString("utf8");
 
@@ -21,7 +23,15 @@ function AlterarCabecalho(buffer) {
 
     const sep = cabecalho.includes(";") ? ";" : ",";
 
-    const novoCabecalho = cabecalho.trimEnd() + sep + New_Entrys.join(sep);
+    const colunas = cabecalho.trimEnd().split(sep).map(col => {
+        const nome = col.trim().replace(/^"|"$/g, "");
+        if (nome.toUpperCase() === "SMS") {
+            return col.includes('"') ? '"Numero"' : "Numero";
+        }
+        return col;
+    });
+
+    const novoCabecalho = [...colunas, ...NOVOS_CABECALHOS].join(sep);
 
     return Buffer.from(bom + novoCabecalho + resto, "utf8");
 }
