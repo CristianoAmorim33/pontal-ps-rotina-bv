@@ -5,6 +5,26 @@ import path from 'path';
 const PathBv = process.env.SFTP_PATH_BV;
 const PathBee = process.env.SFTP_PATH_BEE;
 const TeamsUrl = process.env.TEAMS_WEBHOOK_URL;
+const New_Entrys = ["Dia", "Grupo", "Canal", "Mensagem"];
+
+function AlterarCabecalho(buffer) {
+    let texto = buffer.toString("utf8");
+
+    const bom = texto.startsWith("\uFEFF") ? "\uFEFF" : "";
+    if (bom) texto = texto.slice(1);
+
+    const quebra = texto.includes("\r\n") ? "\r\n" : "\n";
+    const fimCabecalho = texto.indexOf(quebra);
+
+    const cabecalho = fimCabecalho === -1 ? texto : texto.slice(0, fimCabecalho);
+    const resto = fimCabecalho === -1 ? "" : texto.slice(fimCabecalho);
+
+    const sep = cabecalho.includes(";") ? ";" : ",";
+
+    const novoCabecalho = cabecalho.trimEnd() + sep + New_Entrys.join(sep);
+
+    return Buffer.from(bom + novoCabecalho + resto, "utf8");
+}
 
 //Coleta arquivo BV
 async function Get_Base_BV(PathRelatorios) {
@@ -12,14 +32,16 @@ async function Get_Base_BV(PathRelatorios) {
         const arquivos = (await ClientSftpBV.list(PathRelatorios)).filter(f => f.type === "-" && f.name.endsWith(".csv"));
 
         if (arquivos.length === 0) {
-            throw new Error("Nenhum arquivo para envio");
+            return { Sucess: true, Arquivos: [] };
         }
 
         const Arquivos = [];
         for (const f of arquivos) {
+            const original = await ClientSftpBV.get(`${PathRelatorios}/${f.name}`);
+
             Arquivos.push({
-                Nome: f.name,
-                Conteudo: await ClientSftpBV.get(`${PathRelatorios}/${f.name}`)
+                Nome: f.name.replace(/\.[^.]+$/, "") + ".csv",
+                Conteudo: AlterarCabecalho(original)
             });
         }
 
@@ -54,6 +76,11 @@ async function RoutineBvToBee() {
 
         if (!GetArchives_BV.Sucess) {
             throw new Error(`Erro ao buscar arquivos na BV: ${GetArchives_BV.Err}`);
+        }
+
+        if (GetArchives_BV.Arquivos.length === 0) {
+            console.log("Nenhum arquivo encontrado na BV");
+            return { Sucess: true, Msg: "Nenhum arquivo encontrado na BV" };
         }
 
         console.log(`Arquivos encontrados na BV: ${GetArchives_BV.Arquivos.map(a => a.Nome).join(", ")}`);
@@ -96,6 +123,12 @@ async function main(TeamsUrl) {
 
             ColorAllert = "attention";
             MsgTeams = `Erro ao enviar arquivos BV para BEE: ${resultsyncJob.Err}`;
+
+        }
+
+        else if (resultsyncJob.Msg === "Nenhum arquivo encontrado na BV") {
+
+            return console.log("Nenhum arquivo encontrado na BV, rotina encerrada.");
 
         }
 
