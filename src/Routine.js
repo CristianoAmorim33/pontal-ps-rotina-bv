@@ -161,7 +161,7 @@ async function RoutineBvToBee() {
 
         const Nomes = GetArchives_BV.Arquivos.map(a => a.Nome).join(", ");
 
-        return { Sucess: true, Msg: `Rotina concluída com sucesso. Arquivo(s): ${Nomes}` };
+        return { Sucess: true, Msg: `Rotina concluída com sucesso.\n Arquivo(s): ${Nomes}` };
     }
 
     catch (error) {
