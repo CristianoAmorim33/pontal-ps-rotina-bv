@@ -4,9 +4,10 @@ import path from 'path';
 
 const PathBv = process.env.SFTP_PATH_BV;
 const PathBee = process.env.SFTP_PATH_BEE;
+const PathProcess = process.env.SFTP_PATH_PROCESS
 const TeamsUrl = process.env.TEAMS_WEBHOOK_URL;
 const New_Entrys = ["Dia", "Grupo", "Canal", "Mensagem"];
-const Renome = {SMS: "Numero", NOME: "Nome"};
+const Renome = { SMS: "Numero", NOME: "Nome" };
 
 function AlterarCabecalho(buffer) {
     let texto = buffer.toString("utf8");
@@ -105,6 +106,28 @@ async function Input_Base_BEE(PathDestiny, ArchiveBv) {
     }
 }
 
+async function Mover_Base_BV(PathRelatorios, Arquivos, PastaDestino) {
+    try {
+        if (!PastaDestino) {
+            return { Sucess: false, Movidos: [], Err: "pasta destino não preenchida" };
+        }
+
+        const Movidos = [];
+        for (const arq of Arquivos) {
+            await ClientSftpBV.rename(
+                `${PathRelatorios}/${arq.Nome}`,
+                `${PastaDestino}/${arq.Nome}`
+            );
+            Movidos.push(arq.Nome);
+        }
+
+        return { Sucess: true, Movidos };
+    }
+    catch (error) {
+        return { Sucess: false, Movidos: [], Err: error.message };
+    }
+}
+
 //Função principal
 async function RoutineBvToBee() {
 
@@ -132,7 +155,13 @@ async function RoutineBvToBee() {
         }
         console.log("Arquivos enviados com sucesso para a BEE");
 
-        return { Sucess: true, Msg: "Rotina concluída com sucesso" };
+        const mov = await Mover_Base_BV(PathBv, GetArchives_BV.Arquivos, PathProcess);
+        if (!mov.Sucess) console.error("Falha ao mover:", mov.Err);
+
+
+        const Nomes = GetArchives_BV.Arquivos.map(a => a.Nome).join(", ");
+
+        return { Sucess: true, Msg: `Rotina concluída com sucesso. Arquivo(s): ${Nomes}` };
     }
 
     catch (error) {
@@ -172,7 +201,7 @@ async function main(TeamsUrl) {
         }
 
         else {
-
+            
             ColorAllert = "good";
             MsgTeams = `Envio de arquivos BV para BEE concluído com sucesso.`;
         }
