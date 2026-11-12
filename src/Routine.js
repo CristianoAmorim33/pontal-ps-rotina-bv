@@ -203,7 +203,7 @@ async function main(TeamsUrl) {
         else {
             
             ColorAllert = "good";
-            MsgTeams = `Envio de arquivos BV para BEE concluído com sucesso.`;
+            MsgTeams = resultsyncJob.Msg;
         }
 
         const PuTeamsNotification = await fetch(TeamsUrl, {
